@@ -1,0 +1,11 @@
+{
+  "name": "servidor1-paginas-estaticas",
+  "version": "1.0.0",
+  "main": "servidor1.js",
+  "scripts": {
+    "start": "node servidor1.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2"
+  }
+}
