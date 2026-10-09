@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Cardápio - Lanchonete</title>
+  <link rel="stylesheet" href="estilo.css">
+</head>
+<body>
+  <h1>Cardápio</h1>
+  <nav>
+    <a href="cardapio.html">Cardápio</a>
+    <a href="pedidos.html">Pedidos</a>
+  </nav>
+
+  <p>
+    Nome do cliente:
+    <input type="text" id="nomeCliente">
+  </p>
+
+  <div id="erro" class="erro"></div>
+  <div id="sucesso" class="sucesso"></div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Código</th>
+        <th>Produto</th>
+        <th>Preço</th>
+        <th>Estoque</th>
+        <th>Quantidade</th>
+      </tr>
+    </thead>
+    <tbody id="listaProdutos"></tbody>
+  </table>
+
+  <button onclick="enviarPedido()">Enviar pedido</button>
+  <button onclick="carregarProdutos()">Atualizar cardápio</button>
+
+  <script src="cardapio.js"></script>
+</body>
+</html>
