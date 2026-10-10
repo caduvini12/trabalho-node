@@ -1,0 +1,20 @@
+{
+  "name": "trabalho-node",
+  "version": "1.0.0",
+  "description": "Sistema com 3 servidores Node.js",
+  "scripts": {
+    "start:1": "node servidor1.js",
+    "start:2": "node servidor2.js",
+    "start:3": "node servidor3.js",
+    "dev:1": "nodemon servidor1.js",
+    "dev:2": "nodemon servidor2.js",
+    "dev:3": "nodemon servidor3.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
