@@ -1,84 +1,102 @@
 const URL_API = 'http://localhost:3001';
-
-let mostrarErro = (msg) => {
-  document.getElementById('erro').innerText = msg;
+ 
+function mostrarErro(mensagem) {
+  document.getElementById('erro').textContent = mensagem;
 }
-
-// busca pedidos em aberto
+ 
+function montarPedido(pedido) {
+  const caixa = document.createElement('div');
+  caixa.className = 'pedido';
+ 
+  const titulo = document.createElement('h3');
+  titulo.textContent = 'Pedido nº ' + pedido.Numero + ' - ' + pedido.NomeCliente;
+  caixa.appendChild(titulo);
+ 
+  const tabela = document.createElement('table');
+  tabela.innerHTML =
+    '<tr><th>Código</th><th>Produto</th><th>Preço</th><th>Quantidade</th></tr>';
+ 
+  for (let i = 0; i < pedido.Itens.length; i++) {
+    const item = pedido.Itens[i];
+    const linha = document.createElement('tr');
+ 
+    const campos = [
+      item.CodProduto,
+      item.Nome,
+      'R$ ' + item.Preco.toFixed(2),
+      item.Qtd
+    ];
+ 
+    for (let j = 0; j < campos.length; j++) {
+      const celula = document.createElement('td');
+      celula.textContent = campos[j];
+      linha.appendChild(celula);
+    }
+ 
+    tabela.appendChild(linha);
+  }
+  caixa.appendChild(tabela);
+ 
+  const total = document.createElement('p');
+  total.textContent = 'Total do pedido: R$ ' + pedido.Total.toFixed(2);
+  caixa.appendChild(total);
+ 
+  const botaoFechar = document.createElement('button');
+  botaoFechar.textContent = 'Fechar pedido';
+  botaoFechar.onclick = function () {
+    fecharPedido(pedido.Numero);
+  };
+  caixa.appendChild(botaoFechar);
+ 
+  return caixa;
+}
+ 
 async function carregarPedidos() {
   mostrarErro('');
+ 
   try {
-    let req = await fetch(`${URL_API}/pedidos`);
-    let lista = await req.json();
-
-    if (req.ok == false) {
-      mostrarErro(lista.erro);
-      return;
-    }
-
-    let div = document.getElementById('listaPedidos');
-
-    if (lista.length == 0) {
-      div.innerHTML = 'Nenhum pedido aberto.';
-      return;
-    }
-
-    let html = '';
-    for (let i = 0; i < lista.length; i++) {
-      let ped = lista[i];
-      let itensHtml = '';
-
-      for (let j = 0; j < ped.Itens.length; j++) {
-        let item = ped.Itens[j];
-        itensHtml += `
-          <tr>
-            <td>${item.CodProduto}</td>
-            <td>${item.Nome}</td>
-            <td>R$ ${item.Preco.toFixed(2)}</td>
-            <td>${item.Qtd}</td>
-          </tr>`;
-      }
-
-      html += `
-        <div class="pedido">
-          <h3>Pedido nº ${ped.Numero} - ${ped.NomeCliente}</h3>
-          <table>
-            <tr>
-              <th>Código</th>
-              <th>Produto</th>
-              <th>Preço</th>
-              <th>Quantidade</th>
-            </tr>
-            ${itensHtml}
-          </table>
-          <p>Total do pedido: R$ ${ped.Total.toFixed(2)}</p>
-          <button onclick="fecharPedido(${ped.Numero})">Fechar pedido</button>
-        </div>`;
-    }
-
-    div.innerHTML = html;
-  } catch (e) {
-    mostrarErro('erro ao buscar pedidos');
-  }
-}
-
-// fecha o pedido e atualiza a lista
-async function fecharPedido(num) {
-  try {
-    let req = await fetch(`${URL_API}/pedidos/${num}/fechar`, {
-      method: 'POST'
-    });
-    let dados = await req.json();
-
-    if (req.ok == false) {
+    const resposta = await fetch(URL_API + '/pedidos');
+    const dados = await resposta.json();
+ 
+    if (!resposta.ok) {
       mostrarErro(dados.erro);
       return;
     }
-
-    carregarPedidos();
-  } catch (e) {
-    mostrarErro('erro ao fechar');
+ 
+    const divLista = document.getElementById('listaPedidos');
+    divLista.innerHTML = '';
+ 
+    if (dados.length === 0) {
+      divLista.textContent = 'Nenhum pedido aberto.';
+      return;
+    }
+ 
+    for (let i = 0; i < dados.length; i++) {
+      divLista.appendChild(montarPedido(dados[i]));
+    }
+  } catch (erro) {
+    mostrarErro('Não foi possível conectar ao servidor de pedidos.');
   }
 }
-
+ 
+async function fecharPedido(numero) {
+  mostrarErro('');
+ 
+  try {
+    const resposta = await fetch(URL_API + '/pedidos/' + numero + '/fechar', {
+      method: 'POST'
+    });
+    const dados = await resposta.json();
+ 
+    if (!resposta.ok) {
+      mostrarErro(dados.erro);
+      return;
+    }
+ 
+    carregarPedidos();
+  } catch (erro) {
+    mostrarErro('Não foi possível conectar ao servidor de pedidos.');
+  }
+}
+ 
 carregarPedidos();

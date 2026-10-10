@@ -1,11 +1,12 @@
+
 const express = require('express');
-const app = express();
 const cors = require('cors');
 
+const app = express();
 app.use(express.json());
 app.use(cors());
 
-// controle de estoque em memoria
+
 let estoque = [
   { CodProduto: 1, Estoque: 50 },
   { CodProduto: 2, Estoque: 50 },
@@ -14,23 +15,48 @@ let estoque = [
   { CodProduto: 5, Estoque: 80 }
 ];
 
+
 app.get('/estoque', function (req, res) {
   res.json(estoque);
 });
 
-// baixa atomica no estoque
+
 app.post('/baixa', function (req, res) {
   let itens = req.body;
 
-  // confere se todos os itens tem estoque antes de descontar
+  if (Array.isArray(itens) == false || itens.length == 0) {
+    return res.status(400).json({ erro: 'envie uma lista de itens' });
+  }
+
+
+  let copia = [];
+  for (let j = 0; j < estoque.length; j++) {
+    copia.push(estoque[j].Estoque);
+  }
+
+
   for (let i = 0; i < itens.length; i++) {
     let item = itens[i];
+
+    if (item === null || typeof item !== 'object') {
+      return res.status(400).json({ erro: 'item invalido' });
+    }
+
+
+    if (Number.isInteger(item.Qtd) == false || item.Qtd <= 0) {
+      return res.status(400).json({ erro: 'quantidade invalida' });
+    }
+
     let achou = false;
 
     for (let j = 0; j < estoque.length; j++) {
-      if (estoque[j].CodProduto == item.CodProduto) {
+      if (estoque[j].CodProduto === item.CodProduto) {
         achou = true;
-        if (estoque[j].Estoque < item.Qtd) {
+
+       
+        copia[j] = copia[j] - item.Qtd;
+
+        if (copia[j] < 0) {
           return res.status(400).json({ erro: 'estoque insuficiente' });
         }
       }
@@ -41,49 +67,57 @@ app.post('/baixa', function (req, res) {
     }
   }
 
-  // desconta as quantidades
-  for (let i = 0; i < itens.length; i++) {
-    let item = itens[i];
-
-    for (let j = 0; j < estoque.length; j++) {
-      if (estoque[j].CodProduto == item.CodProduto) {
-        estoque[j].Estoque = estoque[j].Estoque - item.Qtd;
-      }
-    }
+  
+  for (let j = 0; j < estoque.length; j++) {
+    estoque[j].Estoque = copia[j];
   }
 
   res.json({ mensagem: 'baixa feita' });
 });
 
-// repoe estoque para testes
+
 app.post('/reposicao', function (req, res) {
   let itens = req.body;
 
-  if (!itens) {
-    return res.status(400).json({ erro: 'faltou dados' });
-  }
-
-  if (!Array.isArray(itens)) {
+  
+  if (Array.isArray(itens) == false) {
     itens = [itens];
   }
 
+  if (itens.length == 0) {
+    return res.status(400).json({ erro: 'faltou dados' });
+  }
+
+
   for (let i = 0; i < itens.length; i++) {
     let item = itens[i];
-    if (item.CodProduto == null || item.Qtd == null || item.Qtd <= 0) {
+
+    if (item === null || typeof item !== 'object') {
+      return res.status(400).json({ erro: 'dados invalidos para reposicao' });
+    }
+
+    if (Number.isInteger(item.Qtd) == false || item.Qtd <= 0) {
       return res.status(400).json({ erro: 'dados invalidos para reposicao' });
     }
 
     let achou = false;
     for (let j = 0; j < estoque.length; j++) {
-      if (estoque[j].CodProduto == item.CodProduto) {
-        estoque[j].Estoque = estoque[j].Estoque + item.Qtd;
+      if (estoque[j].CodProduto === item.CodProduto) {
         achou = true;
-        break;
       }
     }
 
     if (achou == false) {
       return res.status(404).json({ erro: 'produto nao encontrado' });
+    }
+  }
+
+  // soma no estoque
+  for (let i = 0; i < itens.length; i++) {
+    for (let j = 0; j < estoque.length; j++) {
+      if (estoque[j].CodProduto === itens[i].CodProduto) {
+        estoque[j].Estoque = estoque[j].Estoque + itens[i].Qtd;
+      }
     }
   }
 

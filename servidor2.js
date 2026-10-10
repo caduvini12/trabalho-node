@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 
@@ -5,10 +6,10 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// endereco do servidor 3
+
 const URL_ESTOQUE = 'http://localhost:3002';
 
-// produtos cadastrados na lanchonete
+// produtos da lanchonete
 const produtos = [
   { CodProduto: 1, Nome: 'X-Burger', Preco: 18.50 },
   { CodProduto: 2, Nome: 'X-Salada', Preco: 20.00 },
@@ -20,13 +21,13 @@ const produtos = [
 let pedidos = [];
 let proximoNumeroPedido = 1;
 
-// busca estoque no servidor 3 e monta a lista com preco e quantidade
+
 app.get('/produtos', async function (req, res) {
   try {
     let reqEstoque = await fetch(URL_ESTOQUE + '/estoque');
 
     if (reqEstoque.ok == false) {
-      return res.status(502).json({ erro: 'erro no servidor 3' });
+      return res.status(502).json({ erro: 'erro no servidor de estoque' });
     }
 
     let estoque = await reqEstoque.json();
@@ -37,7 +38,7 @@ app.get('/produtos', async function (req, res) {
       let qtd = 0;
 
       for (let j = 0; j < estoque.length; j++) {
-        if (estoque[j].CodProduto == prod.CodProduto) {
+        if (estoque[j].CodProduto === prod.CodProduto) {
           qtd = estoque[j].Estoque;
         }
       }
@@ -52,59 +53,87 @@ app.get('/produtos', async function (req, res) {
 
     res.json(lista);
   } catch (e) {
-    res.status(500).json({ erro: 'estoque fora do ar' });
+    res.status(503).json({ erro: 'servidor de estoque fora do ar' });
   }
 });
+
 
 app.get('/pedidos', function (req, res) {
   res.json(pedidos);
 });
 
+
 app.post('/pedidos', async function (req, res) {
   let dados = req.body;
 
-  if (dados.NomeCliente == null || dados.Itens == null) {
-    return res.status(400).json({ erro: 'faltou dados' });
+
+  if (typeof dados.NomeCliente !== 'string' || dados.NomeCliente.trim() == '') {
+    return res.status(400).json({ erro: 'informe o nome do cliente' });
   }
 
-  let total = 0;
+  
+  if (Array.isArray(dados.Itens) == false || dados.Itens.length == 0) {
+    return res.status(400).json({ erro: 'o pedido precisa ter pelo menos um item' });
+  }
+
   let itensSalvar = [];
 
   for (let i = 0; i < dados.Itens.length; i++) {
     let item = dados.Itens[i];
-    let achou = false;
 
+    if (item === null || typeof item !== 'object') {
+      return res.status(400).json({ erro: 'item invalido' });
+    }
+
+    // quantidade tem que ser numero inteiro maior que zero
+    if (Number.isInteger(item.Qtd) == false || item.Qtd <= 0) {
+      return res.status(400).json({ erro: 'quantidade invalida' });
+    }
+
+    // procura o produto
+    let produto = null;
     for (let j = 0; j < produtos.length; j++) {
-      if (produtos[j].CodProduto == item.CodProduto) {
-        achou = true;
-
-        if (item.Qtd <= 0) {
-          return res.status(400).json({ erro: 'quantidade invalida' });
-        }
-
-        // calcula o valor total no servidor
-        total = total + (produtos[j].Preco * item.Qtd);
-
-        itensSalvar.push({
-          CodProduto: produtos[j].CodProduto,
-          Nome: produtos[j].Nome,
-          Preco: produtos[j].Preco,
-          Qtd: item.Qtd
-        });
+      if (produtos[j].CodProduto === item.CodProduto) {
+        produto = produtos[j];
       }
     }
 
-    if (achou == false) {
+    if (produto === null) {
       return res.status(400).json({ erro: 'produto nao encontrado' });
     }
+
+    // se o produto ja esta na lista, so soma a quantidade
+    let jaTem = false;
+    for (let k = 0; k < itensSalvar.length; k++) {
+      if (itensSalvar[k].CodProduto === produto.CodProduto) {
+        itensSalvar[k].Qtd = itensSalvar[k].Qtd + item.Qtd;
+        jaTem = true;
+      }
+    }
+
+    if (jaTem == false) {
+      itensSalvar.push({
+        CodProduto: produto.CodProduto,
+        Nome: produto.Nome,
+        Preco: produto.Preco,
+        Qtd: item.Qtd
+      });
+    }
   }
+
+
+  let total = 0;
+  for (let i = 0; i < itensSalvar.length; i++) {
+    total = total + itensSalvar[i].Preco * itensSalvar[i].Qtd;
+  }
+  total = Math.round(total * 100) / 100;
 
   // da baixa no servidor 3 antes de registrar o pedido
   try {
     let reqBaixa = await fetch(URL_ESTOQUE + '/baixa', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(dados.Itens)
+      body: JSON.stringify(itensSalvar)
     });
 
     let respBaixa = await reqBaixa.json();
@@ -115,7 +144,7 @@ app.post('/pedidos', async function (req, res) {
 
     let ped = {
       Numero: proximoNumeroPedido,
-      NomeCliente: dados.NomeCliente,
+      NomeCliente: dados.NomeCliente.trim(),
       Total: total,
       Itens: itensSalvar
     };
@@ -125,27 +154,37 @@ app.post('/pedidos', async function (req, res) {
 
     res.json(ped);
   } catch (e) {
-    res.status(500).json({ erro: 'erro no estoque' });
+    res.status(503).json({ erro: 'servidor de estoque fora do ar' });
   }
 });
 
-// fecha pedido e tira da lista
+
 app.post('/pedidos/:id/fechar', function (req, res) {
-  let id = parseInt(req.params.id);
+  let id = Number(req.params.id);
+
+  if (Number.isInteger(id) == false) {
+    return res.status(400).json({ erro: 'numero de pedido invalido' });
+  }
+
   let pos = -1;
 
   for (let i = 0; i < pedidos.length; i++) {
-    if (pedidos[i].Numero == id) {
+    if (pedidos[i].Numero === id) {
       pos = i;
     }
   }
 
   if (pos == -1) {
-    return res.status(404).json({ erro: 'nao achou o pedido' });
+    return res.status(404).json({ erro: 'pedido nao encontrado' });
   }
 
   pedidos.splice(pos, 1);
-  res.json({ mensagem: 'ok' });
+  res.json({ mensagem: 'pedido ' + id + ' fechado' });
+});
+
+
+app.use(function (erro, req, res, next) {
+  res.status(400).json({ erro: 'JSON invalido' });
 });
 
 app.listen(3001, function () {
